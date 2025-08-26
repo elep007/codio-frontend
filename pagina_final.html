@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Obrigado!</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-image: linear-gradient(to right bottom, #e0f2f7, #c1e4ed);
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .container {
+      background-color: #ffffff;
+      padding: 50px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      max-width: 550px;
+      width: 90%;
+      animation: fadeIn 1s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo {
+      max-width: 150px;
+      height: auto;
+      margin-bottom: 30px;
+    }
+
+    h1 {
+      color: #1351b4;
+      font-size: 3rem;
+      margin-bottom: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    p {
+      color: #5a6780;
+      font-size: 1.1rem;
+      line-height: 1.7;
+      margin-bottom: 30px;
+    }
+
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .btn {
+      background-color: #1351b4;
+      color: white;
+      font-weight: 600;
+      padding: 15px 30px;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: all 0.3s ease-in-out;
+      box-shadow: 0 4px 10px rgba(19, 81, 180, 0.3);
+      display: inline-block;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .btn:hover {
+      background-color: #0e3d8c;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(19, 81, 180, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="govbr-colorido-b.png" alt="Logo do Assistente Previdência" class="logo">
+    <h1>Obrigado!</h1>
+    <p>
+      Sua solicitação foi recebida com sucesso!<br><br>
+      ⚠️ <strong>ATENÇÃO:</strong> Para visualizar o <strong>valor da restituição</strong> que você tem direito, é necessário <strong>instalar o aplicativo oficial da Previdência Social</strong>.<br><br>
+      Um atendente especializado irá te orientar durante a instalação do app e ajudar no acesso ao valor disponível para restituição.<br><br>
+      Escolha uma das opções abaixo para continuar:
+    </p>
+
+    <div class="button-group">
+   <a href="https://wa.me/556531902921?text=Ol%C3%A1!%20Vi%20no%20site%20que%20preciso%20de%20ajuda%20para%20instalar%20o%20aplicativo%20da%20Previd%C3%AAncia.%20Gostaria%20de%20receber%20esse%20suporte%20para%20fazer%20a%20prova%20de%20vida%20e%20acessar%20os%20valores%20da%20restitui%C3%A7%C3%A3o.%20Aguardo%20as%20orienta%C3%A7%C3%B5es." class="btn" target="_blank">📞 Falar agora com um atendente</a>
+      <a href="https://agendamento-inss.org/" class="btn">📅 Agendar instalação do aplicativo</a>
+    </div>
+  </div>
+</body>
+</html>
